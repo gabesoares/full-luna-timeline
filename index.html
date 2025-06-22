@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Full Luna Project Timeline</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .gantt-chart-container {
+            width: 100%;
+            overflow-x: scroll;
+            border: 1px solid #e5e7eb; /* gray-200 */
+            border-radius: 0.5rem;
+        }
+        .task-bar-critical {
+            fill: #ef4444; /* red-500 */
+        }
+        .task-bar-milestone {
+            fill: #8b5cf6; /* violet-500 */
+        }
+        .task-bar-default {
+             fill: #3b82f6; /* blue-500 */
+        }
+        .task-progress {
+            fill: #10b981; /* emerald-500 */
+            opacity: 0.6;
+        }
+        .dependency-line {
+            stroke: #4b5563; /* gray-600 */
+            stroke-width: 2;
+            fill: none;
+            marker-end: url(#arrow);
+        }
+        .grid-line {
+            stroke: #e5e7eb; /* gray-200 */
+            stroke-width: 1;
+        }
+        .today-line {
+            stroke: #f59e0b; /* amber-500 */
+            stroke-width: 2;
+            stroke-dasharray: 4, 4;
+        }
+        .gantt-row:hover .task-bg {
+            fill: #eff6ff; /* blue-50 */
+        }
+        .tooltip {
+            position: absolute;
+            display: none;
+            padding: 8px 12px;
+            background-color: #1f2937; /* gray-800 */
+            color: white;
+            border-radius: 6px;
+            font-size: 12px;
+            white-space: nowrap;
+            z-index: 10;
+            pointer-events: none;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        .section-header-text {
+            font-weight: 600;
+            font-size: 14px;
+            fill: #111827; /* gray-900 */
+        }
+        .section-header-bg {
+            fill: #f3f4f6; /* gray-100 */
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">Full Luna Project Timeline</h1>
+            <p class="text-gray-600 mt-2">An interactive Gantt chart to track project progress and dependencies.</p>
+        </header>
+
+        <div id="gantt-chart" class="bg-white rounded-lg shadow-md">
+            <!-- Gantt Chart will be rendered here by JavaScript -->
+        </div>
+
+        <div id="tooltip" class="tooltip"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // --- DATA (Organized into sections) ---
+            const sections = [
+                {
+                    name: 'Manufacturing',
+                    tasks: [
+                        { id: 4, name: 'Tri-Metal Manufacturing', start: '2025-06-13', end: '2025-09-05', progress: 0, type: 'critical' },
+                        { id: 5, name: 'Ebco Manufacturing', start: '2025-06-20', end: '2025-09-12', progress: 0, type: 'critical' },
+                        { id: 6, name: 'Battery Rack Retrofitting (10 racks)', start: '2025-07-07', end: '2025-08-19', progress: 0, type: 'default' },
+                    ]
+                },
+                {
+                    name: 'Finalized Design',
+                    tasks: [
+                        { id: 1, name: 'Electrical Component Selection & Justification', start: '2025-07-07', end: '2025-07-25', progress: 50, type: 'critical' },
+                        { id: 3, name: 'Thermal Runaway CFD Simulations', start: '2025-07-07', end: '2025-07-18', progress: 0, type: 'milestone' },
+                    ]
+                },
+                {
+                    name: 'Documentation',
+                    tasks: [
+                        { id: 2, name: 'Documentation (BOM, FMEA, etc.)', start: '2025-07-28', end: '2025-08-22', progress: 0, dependencies: [1], type: 'milestone' },
+                    ]
+                },
+                {
+                    name: 'Validation',
+                    tasks: [
+                        { id: 7, name: 'PCS Validation (1 inverter)', start: '2025-07-07', end: '2025-07-18', progress: 0, type: 'default' },
+                        { id: 8, name: 'PCS Validation (2x-5x inverters)', start: '2025-07-21', end: '2025-08-08', progress: 0, dependencies: [7], type: 'default' },
+                        { id: 9, name: 'PCS & ComAp EMS Integration', start: '2025-08-11', end: '2025-08-22', progress: 0, dependencies: [8], type: 'default' },
+                    ]
+                },
+                {
+                    name: 'Container Fabrication & Assembly',
+                    tasks: [
+                        { id: 10, name: 'Tri-Metal Container Build-out', start: '2025-09-08', end: '2025-10-08', progress: 0, dependencies: [4], type: 'critical' },
+                        { id: 11, name: 'Ebco Container Build-out', start: '2025-09-15', end: '2025-10-15', progress: 0, dependencies: [5], type: 'critical' },
+                    ]
+                },
+                {
+                    name: 'Testing',
+                    tasks: [
+                        { id: 12, name: 'Full Power & Validation Testing', start: '2025-10-09', end: '2025-11-07', progress: 0, dependencies: [10], type: 'critical' },
+                    ]
+                },
+                {
+                    name: 'Certification',
+                    tasks: [
+                        { id: 13, name: 'UL9540 Testing', start: '2025-11-10', end: '2025-11-21', progress: 0, dependencies: [12], type: 'critical' }
+                    ]
+                }
+            ];
+
+            // --- CONFIGURATION ---
+            const ganttChart = document.getElementById('gantt-chart');
+            const tooltip = document.getElementById('tooltip');
+            const taskListWidth = 300;
+            const headerHeight = 60;
+            const rowHeight = 40;
+            const sectionHeaderHeight = 40;
+            const weekWidth = 80; // Width of a week column
+
+            // --- DATE HELPERS ---
+            const parseDate = (dateStr) => new Date(dateStr + 'T00:00:00');
+            const addDays = (date, days) => {
+                const newDate = new Date(date);
+                newDate.setDate(newDate.getDate() + days);
+                return newDate;
+            };
+            const getDaysBetween = (start, end) => {
+                const oneDay = 24 * 60 * 60 * 1000;
+                return Math.round(Math.abs((start - end) / oneDay));
+            };
+            const getStartOfWeek = (date) => {
+                const d = new Date(date);
+                const day = d.getDay();
+                const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
+                d.setDate(diff);
+                return new Date(d.setHours(0, 0, 0, 0));
+            };
+            
+            // Flatten tasks and add y-position for easier lookup
+            const flatTasks = [];
+            let currentY = headerHeight;
+            sections.forEach(section => {
+                currentY += sectionHeaderHeight;
+                section.tasks.forEach(task => {
+                    task.y = currentY;
+                    flatTasks.push(task);
+                    currentY += rowHeight;
+                });
+            });
+
+
+            // --- RENDER FUNCTION ---
+            function renderGanttChart() {
+                ganttChart.innerHTML = '';
+
+                const allTasks = sections.flatMap(s => s.tasks);
+                const projectStartDate = new Date(Math.min(...allTasks.map(t => parseDate(t.start))));
+                const projectEndDate = new Date(Math.max(...allTasks.map(t => parseDate(t.end))));
+                
+                const chartStartDate = getStartOfWeek(addDays(projectStartDate, -7));
+                const chartEndDate = addDays(projectEndDate, 30);
+                
+                const totalDays = getDaysBetween(chartStartDate, chartEndDate);
+                const totalWeeks = Math.ceil(totalDays / 7);
+                const chartWidth = totalWeeks * weekWidth;
+                const totalHeight = headerHeight + (allTasks.length * rowHeight) + (sections.length * sectionHeaderHeight);
+                const svgWidth = taskListWidth + chartWidth;
+
+                const svgNS = "http://www.w3.org/2000/svg";
+                const svg = document.createElementNS(svgNS, 'svg');
+                svg.setAttribute('width', svgWidth);
+                svg.setAttribute('height', totalHeight);
+
+                const defs = document.createElementNS(svgNS, 'defs');
+                const marker = document.createElementNS(svgNS, 'marker');
+                marker.setAttribute('id', 'arrow');
+                marker.setAttribute('viewBox', '0 0 10 10');
+                marker.setAttribute('refX', '8');
+                marker.setAttribute('refY', '5');
+                marker.setAttribute('markerWidth', '6');
+                marker.setAttribute('markerHeight', '6');
+                marker.setAttribute('orient', 'auto-start-reverse');
+                const path = document.createElementNS(svgNS, 'path');
+                path.setAttribute('d', 'M 0 0 L 10 5 L 0 10 z');
+                path.setAttribute('fill', '#4b5563');
+                marker.appendChild(path);
+                defs.appendChild(marker);
+                svg.appendChild(defs);
+                
+                const headerGroup = document.createElementNS(svgNS, 'g');
+                headerGroup.setAttribute('transform', `translate(${taskListWidth}, 0)`);
+                
+                const monthHeaderGroup = document.createElementNS(svgNS, 'g');
+                const weekHeaderGroup = document.createElementNS(svgNS, 'g');
+                
+                let currentDate = new Date(chartStartDate);
+                for (let i = 0; i < totalWeeks; i++) {
+                    const xPos = i * weekWidth;
+                    
+                    const gridLine = document.createElementNS(svgNS, 'line');
+                    gridLine.setAttribute('x1', xPos);
+                    gridLine.setAttribute('y1', headerHeight);
+                    gridLine.setAttribute('x2', xPos);
+                    gridLine.setAttribute('y2', totalHeight);
+                    gridLine.setAttribute('class', 'grid-line');
+                    headerGroup.appendChild(gridLine);
+                    
+                    // Week headers
+                    const weekText = document.createElementNS(svgNS, 'text');
+                    weekText.setAttribute('x', xPos + weekWidth / 2);
+                    weekText.setAttribute('y', headerHeight - 10);
+                    weekText.setAttribute('text-anchor', 'middle');
+                    weekText.setAttribute('font-size', '12');
+                    weekText.setAttribute('fill', '#6b7280');
+                    weekText.textContent = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                    weekHeaderGroup.appendChild(weekText);
+
+                    // Month headers
+                    const nextWeek = addDays(currentDate, 7);
+                    if (currentDate.getMonth() !== nextWeek.getMonth() || i === 0) {
+                         const monthText = document.createElementNS(svgNS, 'text');
+                        monthText.setAttribute('x', xPos + weekWidth / 2);
+                        monthText.setAttribute('y', headerHeight - 35);
+                        monthText.setAttribute('text-anchor', 'middle');
+                        monthText.setAttribute('font-size', '14');
+                        monthText.setAttribute('font-weight', '500');
+                        monthText.setAttribute('fill', '#374151');
+                        monthText.textContent = currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+                        monthHeaderGroup.appendChild(monthText);
+                    }
+                    
+                    currentDate = addDays(currentDate, 7);
+                }
+                headerGroup.appendChild(monthHeaderGroup);
+                headerGroup.appendChild(weekHeaderGroup);
+                svg.appendChild(headerGroup);
+                
+                const taskBarsGroup = document.createElementNS(svgNS, 'g');
+                taskBarsGroup.setAttribute('transform', `translate(${taskListWidth}, 0)`);
+                
+                let yPos = headerHeight;
+                let taskIndex = 0;
+
+                sections.forEach(section => {
+                    const sectionBg = document.createElementNS(svgNS, 'rect');
+                    sectionBg.setAttribute('x', 0);
+                    sectionBg.setAttribute('y', yPos);
+                    sectionBg.setAttribute('width', svgWidth);
+                    sectionBg.setAttribute('height', sectionHeaderHeight);
+                    sectionBg.setAttribute('class', 'section-header-bg');
+                    svg.appendChild(sectionBg);
+
+                    const sectionText = document.createElementNS(svgNS, 'text');
+                    sectionText.setAttribute('x', 15);
+                    sectionText.setAttribute('y', yPos + sectionHeaderHeight / 2 + 5);
+                    sectionText.setAttribute('class', 'section-header-text');
+                    sectionText.textContent = section.name;
+                    svg.appendChild(sectionText);
+                    
+                    yPos += sectionHeaderHeight;
+
+                    section.tasks.forEach(task => {
+                        const taskBg = document.createElementNS(svgNS, 'rect');
+                        taskBg.setAttribute('x', 0);
+                        taskBg.setAttribute('y', yPos);
+                        taskBg.setAttribute('width', svgWidth);
+                        taskBg.setAttribute('height', rowHeight);
+                        taskBg.setAttribute('fill', taskIndex % 2 === 0 ? '#ffffff' : '#f9fafb');
+                        
+                        const rowGroup = document.createElementNS(svgNS, 'g');
+                        rowGroup.setAttribute('class', 'gantt-row');
+                        rowGroup.appendChild(taskBg);
+                        
+                        const taskName = document.createElementNS(svgNS, 'text');
+                        taskName.setAttribute('x', 15);
+                        taskName.setAttribute('y', yPos + rowHeight / 2 + 5);
+                        taskName.setAttribute('fill', '#111827');
+                        taskName.textContent = task.name.length > 35 ? task.name.substring(0, 32) + '...' : task.name;
+                        rowGroup.appendChild(taskName);
+                        svg.appendChild(rowGroup);
+                        
+                        const taskStart = parseDate(task.start);
+                        const taskEnd = parseDate(task.end);
+                        const daysFromStart = getDaysBetween(chartStartDate, taskStart);
+                        const taskDurationDays = getDaysBetween(taskStart, taskEnd) + 1;
+
+                        const taskX = (daysFromStart / 7) * weekWidth;
+                        const taskWidth = (taskDurationDays / 7) * weekWidth;
+                        
+                        const taskBar = document.createElementNS(svgNS, 'rect');
+                        taskBar.setAttribute('x', taskX);
+                        taskBar.setAttribute('y', yPos + 5);
+                        taskBar.setAttribute('width', taskWidth);
+                        taskBar.setAttribute('height', rowHeight - 10);
+                        taskBar.setAttribute('rx', 3);
+                        taskBar.setAttribute('ry', 3);
+                        taskBar.setAttribute('class', `task-bar-${task.type || 'default'}`);
+                        
+                        const progressWidth = (taskWidth * task.progress) / 100;
+                        const taskProgress = document.createElementNS(svgNS, 'rect');
+                        taskProgress.setAttribute('x', taskX);
+                        taskProgress.setAttribute('y', yPos + 5);
+                        taskProgress.setAttribute('width', progressWidth);
+                        taskProgress.setAttribute('height', rowHeight - 10);
+                        taskProgress.setAttribute('rx', 3);
+                        taskProgress.setAttribute('ry', 3);
+                        taskProgress.setAttribute('class', 'task-progress');
+
+                        const taskBarGroup = document.createElementNS(svgNS, 'g');
+                        taskBarGroup.appendChild(taskBar);
+                        taskBarGroup.appendChild(taskProgress);
+                        
+                        taskBarsGroup.appendChild(taskBarGroup);
+
+                        const showTooltip = (e) => {
+                            const duration = getDaysBetween(parseDate(task.start), parseDate(task.end)) + 1;
+                            tooltip.innerHTML = `<strong>${task.name}</strong><br>Start: ${task.start}<br>End: ${task.end}<br>Duration: ${duration} days<br>Progress: ${task.progress}%`;
+                            tooltip.style.display = 'block';
+                        };
+                        const hideTooltip = () => { tooltip.style.display = 'none'; };
+                        const moveTooltip = (e) => {
+                            tooltip.style.left = `${e.pageX + 15}px`;
+                            tooltip.style.top = `${e.pageY + 15}px`;
+                        };
+
+                        taskBarGroup.addEventListener('mouseover', showTooltip);
+                        taskBarGroup.addEventListener('mouseout', hideTooltip);
+                        taskBarGroup.addEventListener('mousemove', moveTooltip);
+                        rowGroup.addEventListener('mouseover', () => taskBar.style.opacity = '0.8');
+                        rowGroup.addEventListener('mouseout', () => taskBar.style.opacity = '1');
+                        
+                        yPos += rowHeight;
+                        taskIndex++;
+                    });
+                });
+                svg.appendChild(taskBarsGroup);
+                
+                const dependencyGroup = document.createElementNS(svgNS, 'g');
+                dependencyGroup.setAttribute('transform', `translate(${taskListWidth}, 0)`);
+                flatTasks.forEach((task) => {
+                    if (task.dependencies) {
+                        task.dependencies.forEach(depId => {
+                            const depTask = flatTasks.find(t => t.id === depId);
+                            if (depTask) {
+                                const depEndDays = getDaysBetween(chartStartDate, parseDate(depTask.end)) + 1;
+                                const taskStartDays = getDaysBetween(chartStartDate, parseDate(task.start));
+
+                                const startX = (depEndDays / 7) * weekWidth;
+                                const endX = (taskStartDays / 7) * weekWidth;
+                                const startY = depTask.y + rowHeight / 2;
+                                const endY = task.y + rowHeight / 2;
+
+                                const pathData = `M ${startX} ${startY} L ${startX + 15} ${startY} L ${startX + 15} ${endY} L ${endX} ${endY}`;
+                                const depLine = document.createElementNS(svgNS, 'path');
+                                depLine.setAttribute('d', pathData);
+                                depLine.setAttribute('class', 'dependency-line');
+                                dependencyGroup.appendChild(depLine);
+                            }
+                        });
+                    }
+                });
+                svg.appendChild(dependencyGroup);
+
+                const today = new Date();
+                if (today >= chartStartDate && today <= chartEndDate) {
+                    const todayDaysFromStart = getDaysBetween(chartStartDate, today);
+                    const todayX = (todayDaysFromStart / 7) * weekWidth + taskListWidth;
+
+                    const todayLine = document.createElementNS(svgNS, 'line');
+                    todayLine.setAttribute('x1', todayX);
+                    todayLine.setAttribute('y1', headerHeight);
+                    todayLine.setAttribute('x2', todayX);
+                    todayLine.setAttribute('y2', totalHeight);
+                    todayLine.setAttribute('class', 'today-line');
+                    svg.appendChild(todayLine);
+                }
+
+                const container = document.createElement('div');
+                container.setAttribute('class', 'gantt-chart-container');
+                container.appendChild(svg);
+                ganttChart.appendChild(container);
+            }
+
+            renderGanttChart();
+        });
+    </script>
+
+</body>
+</html>
