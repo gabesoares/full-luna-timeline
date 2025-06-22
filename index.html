@@ -94,8 +94,8 @@
                 {
                     name: 'Manufacturing',
                     tasks: [
-                        { id: 4, name: 'Tri-Metal Manufacturing', start: '2025-06-13', end: '2025-09-05', progress: 0, type: 'critical' },
-                        { id: 5, name: 'Ebco Manufacturing', start: '2025-06-20', end: '2025-09-12', progress: 0, type: 'critical' },
+                        { id: 4, name: 'Tri-Metal Manufacturing', start: '2025-06-20', end: '2025-09-15', progress: 0, type: 'critical' },
+                        { id: 5, name: 'Ebco Manufacturing', start: '2025-06-20', end: '2025-09-15', progress: 0, type: 'critical' },
                         { id: 6, name: 'Battery Rack Retrofitting (10 racks)', start: '2025-07-07', end: '2025-08-19', progress: 0, type: 'default' },
                     ]
                 },
@@ -123,20 +123,20 @@
                 {
                     name: 'Container Fabrication & Assembly',
                     tasks: [
-                        { id: 10, name: 'Tri-Metal Container Build-out', start: '2025-09-08', end: '2025-10-08', progress: 0, dependencies: [4], type: 'critical' },
-                        { id: 11, name: 'Ebco Container Build-out', start: '2025-09-15', end: '2025-10-15', progress: 0, dependencies: [5], type: 'critical' },
+                        { id: 10, name: 'Tri-Metal Container Build-out', start: '2025-09-16', end: '2025-10-16', progress: 0, dependencies: [4], type: 'critical' },
+                        { id: 11, name: 'Ebco Container Build-out', start: '2025-09-16', end: '2025-10-16', progress: 0, dependencies: [5], type: 'critical' },
                     ]
                 },
                 {
                     name: 'Testing',
                     tasks: [
-                        { id: 12, name: 'Full Power & Validation Testing', start: '2025-10-09', end: '2025-11-07', progress: 0, dependencies: [10], type: 'critical' },
+                        { id: 12, name: 'Full Power & Validation Testing', start: '2025-10-17', end: '2025-11-17', progress: 0, dependencies: [10, 11], type: 'critical' },
                     ]
                 },
                 {
                     name: 'Certification',
                     tasks: [
-                        { id: 13, name: 'UL9540 Testing', start: '2025-11-10', end: '2025-11-21', progress: 0, dependencies: [12], type: 'critical' }
+                        { id: 13, name: 'UL9540 Testing', start: '2025-11-18', end: '2025-12-01', progress: 0, dependencies: [12], type: 'critical' }
                     ]
                 }
             ];
@@ -169,6 +169,43 @@
                 return new Date(d.setHours(0, 0, 0, 0));
             };
             
+            // Auto-adjust dependent tasks
+            function adjustDependentTasks() {
+                for (let i = 0; i < 5; i++) { // Run multiple times to handle chained dependencies
+                    flatTasks.forEach(task => {
+                        if (task.dependencies && task.dependencies.length > 0) {
+                            const latestDependencyEnd = new Date(Math.max(...task.dependencies.map(depId => {
+                                const depTask = flatTasks.find(t => t.id === depId);
+                                return depTask ? parseDate(depTask.end).getTime() : 0;
+                            })));
+
+                            const taskStart = parseDate(task.start);
+                            const depEndDatePlusOne = addDays(latestDependencyEnd, 1);
+                            
+                            // Check if dependency end date is a weekend and adjust
+                            while (depEndDatePlusOne.getDay() === 0 || depEndDatePlusOne.getDay() === 6) {
+                                 depEndDatePlusOne.setDate(depEndDatePlusOne.getDate() + 1);
+                            }
+
+                            if (taskStart < depEndDatePlusOne) {
+                                const duration = getDaysBetween(parseDate(task.start), parseDate(task.end));
+                                const newStartDate = depEndDatePlusOne;
+                                let newEndDate = addDays(newStartDate, duration);
+
+                                // Adjust end date if it falls on a weekend
+                                while (newEndDate.getDay() === 0 || newEndDate.getDay() === 6) {
+                                    newEndDate.setDate(newEndDate.getDate() + 1);
+                                }
+                                
+                                task.start = newStartDate.toISOString().split('T')[0];
+                                task.end = newEndDate.toISOString().split('T')[0];
+                            }
+                        }
+                    });
+                }
+            }
+
+
             // Flatten tasks and add y-position for easier lookup
             const flatTasks = [];
             let currentY = headerHeight;
@@ -180,6 +217,8 @@
                     currentY += rowHeight;
                 });
             });
+
+            adjustDependentTasks();
 
 
             // --- RENDER FUNCTION ---
@@ -238,7 +277,6 @@
                     gridLine.setAttribute('class', 'grid-line');
                     headerGroup.appendChild(gridLine);
                     
-                    // Week headers
                     const weekText = document.createElementNS(svgNS, 'text');
                     weekText.setAttribute('x', xPos + weekWidth / 2);
                     weekText.setAttribute('y', headerHeight - 10);
@@ -248,7 +286,6 @@
                     weekText.textContent = currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
                     weekHeaderGroup.appendChild(weekText);
 
-                    // Month headers
                     const nextWeek = addDays(currentDate, 7);
                     if (currentDate.getMonth() !== nextWeek.getMonth() || i === 0) {
                          const monthText = document.createElementNS(svgNS, 'text');
